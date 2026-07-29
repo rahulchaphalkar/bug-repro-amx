@@ -51,8 +51,9 @@ static feature_report detect_features(void) {
     r.xcr0_tilecfg = ((xcr0 >> 17) & 1ull) != 0;
     r.xcr0_tiledata = ((xcr0 >> 18) & 1ull) != 0;
 
-#if defined(USE_XSTATE_API) && defined(_WIN32)
-    /* Older SDKs may not declare GetEnabledXStateFeatures. */
+#ifdef _WIN32
+    /* Always query the API so we can compare it against CPUID/XCR0.
+       Older SDKs may not declare GetEnabledXStateFeatures. */
     HMODULE k32 = GetModuleHandleA("kernel32.dll");
     if (k32) {
         typedef unsigned long long(WINAPI *GetEnabledXStateFeaturesFn)(void);
@@ -90,9 +91,13 @@ static bool can_run_amx_bf16(const feature_report *r) {
         return false;
     }
 
+#if defined(USE_XSTATE_API)
+    /* Flag ON: gate progress on the OS xstate query as well. */
     if (r->os_xstate_api_ok) {
         return r->os_tilecfg_enabled && r->os_tiledata_enabled;
     }
+#endif
+    /* Flag OFF: report the OS xstate result but do not gate on it. */
     return true;
 }
 
