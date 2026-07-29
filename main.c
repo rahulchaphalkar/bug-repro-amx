@@ -130,6 +130,37 @@ static void print_sample(const float *c) {
     printf("\n");
 }
 
+/* Arm AMX tile state on the current thread (Windows XFD opt-in).
+   Logs the result so we can correlate it with whether the kernel runs. */
+static void arm_amx_thread_state(void) {
+#ifdef _WIN32
+    HMODULE k32 = GetModuleHandleA("kernel32.dll");
+    if (!k32) {
+        printf("SetThreadEnabledXStateFeatures: kernel32 not found\n");
+        fflush(stdout);
+        return;
+    }
+    typedef BOOL(WINAPI * SetThreadEnabledXStateFeaturesFn)(unsigned long long);
+    SetThreadEnabledXStateFeaturesFn fn =
+        (SetThreadEnabledXStateFeaturesFn)GetProcAddress(k32, "SetThreadEnabledXStateFeatures");
+    if (!fn) {
+        printf("SetThreadEnabledXStateFeatures: API unavailable\n");
+        fflush(stdout);
+        return;
+    }
+    const unsigned long long mask =
+        XSTATE_MASK_AMX_TILE_CONFIG | XSTATE_MASK_AMX_TILE_DATA;
+    SetLastError(0);
+    const BOOL ok = fn(mask);
+    printf("SetThreadEnabledXStateFeatures(AMX_TILE_CONFIG|DATA): ret=%d err=%lu\n",
+           ok ? 1 : 0, (unsigned long)GetLastError());
+    fflush(stdout);
+#else
+    printf("SetThreadEnabledXStateFeatures: not Windows\n");
+    fflush(stdout);
+#endif
+}
+
 int main(void) {
     feature_report r = detect_features();
     print_report(&r);
@@ -147,7 +178,13 @@ int main(void) {
     init_tilecfg(&cfg);
     init_inputs(a, b);
 
+    arm_amx_thread_state();
+
+    printf("Running AMX-BF16 kernel...\n");
+    fflush(stdout);
     amx_bf16_kernel(&cfg, a, b, c);
+    printf("Kernel returned without faulting.\n");
+    fflush(stdout);
     print_sample(c);
 
     return 0;
