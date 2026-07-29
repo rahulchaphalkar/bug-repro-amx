@@ -51,7 +51,6 @@ static feature_report detect_features(void) {
     r.xcr0_tilecfg = ((xcr0 >> 17) & 1ull) != 0;
     r.xcr0_tiledata = ((xcr0 >> 18) & 1ull) != 0;
 
-#if 0
 #ifdef _WIN32
     /* Older SDKs may not declare GetEnabledXStateFeatures. */
     HMODULE k32 = GetModuleHandleA("kernel32.dll");
@@ -65,7 +64,6 @@ static feature_report detect_features(void) {
             r.os_tiledata_enabled = (mask & XSTATE_MASK_AMX_TILE_DATA) != 0;
         }
     }
-#endif
 #endif
 
     return r;
