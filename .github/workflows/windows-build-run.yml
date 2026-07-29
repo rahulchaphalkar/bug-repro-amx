@@ -12,6 +12,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Print CPU info
+        shell: powershell
+        run: |
+          Get-CimInstance -ClassName Win32_Processor |
+            Select-Object Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed |
+            Format-List
+
       - name: Ensure LLVM clang exists
         shell: powershell
         run: |
