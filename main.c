@@ -130,43 +130,35 @@ static void print_sample(const float *c) {
     printf("\n");
 }
 
-/* Arm AMX tile state on the current thread (Windows XFD opt-in).
-   Logs the result so we can correlate it with whether the kernel runs. */
+/* Enable AMX tile state for the process (Windows optional-XState opt-in).
+   Optional XState features (like AMX) are disabled by default for new
+   threads; EnableProcessOptionalXStateFeatures turns them on for all
+   existing and future threads. Logs the result so we can correlate it
+   with whether the kernel runs. */
 static void arm_amx_thread_state(void) {
 #ifdef _WIN32
-    typedef BOOL(WINAPI * SetThreadEnabledXStateFeaturesFn)(unsigned long long);
-    SetThreadEnabledXStateFeaturesFn fn = NULL;
-
-    /* The setter is exported from kernelbase.dll and is not always
-       forwarded through kernel32.dll, so probe both. */
-    const char *dlls[] = {"kernelbase.dll", "kernel32.dll"};
-    for (int i = 0; i < 2 && fn == NULL; ++i) {
-        HMODULE h = GetModuleHandleA(dlls[i]);
-        if (!h) {
-            h = LoadLibraryA(dlls[i]);
-        }
-        if (h) {
-            fn = (SetThreadEnabledXStateFeaturesFn)GetProcAddress(h, "SetThreadEnabledXStateFeatures");
-            if (fn) {
-                printf("SetThreadEnabledXStateFeatures: found in %s\n", dlls[i]);
-            }
-        }
+    HMODULE k32 = GetModuleHandleA("kernel32.dll");
+    if (!k32) {
+        k32 = LoadLibraryA("kernel32.dll");
     }
+    typedef BOOL(WINAPI * EnableProcessOptionalXStateFeaturesFn)(DWORD64);
+    EnableProcessOptionalXStateFeaturesFn fn =
+        k32 ? (EnableProcessOptionalXStateFeaturesFn)GetProcAddress(k32, "EnableProcessOptionalXStateFeatures")
+            : NULL;
 
     if (!fn) {
-        printf("SetThreadEnabledXStateFeatures: API unavailable (kernelbase+kernel32)\n");
+        printf("EnableProcessOptionalXStateFeatures: API unavailable\n");
         fflush(stdout);
         return;
     }
-    const unsigned long long mask =
-        XSTATE_MASK_AMX_TILE_CONFIG | XSTATE_MASK_AMX_TILE_DATA;
+    const DWORD64 mask = XSTATE_MASK_AMX_TILE_CONFIG | XSTATE_MASK_AMX_TILE_DATA;
     SetLastError(0);
     const BOOL ok = fn(mask);
-    printf("SetThreadEnabledXStateFeatures(AMX_TILE_CONFIG|DATA): ret=%d err=%lu\n",
+    printf("EnableProcessOptionalXStateFeatures(AMX_TILE_CONFIG|DATA): ret=%d err=%lu\n",
            ok ? 1 : 0, (unsigned long)GetLastError());
     fflush(stdout);
 #else
-    printf("SetThreadEnabledXStateFeatures: not Windows\n");
+    printf("EnableProcessOptionalXStateFeatures: not Windows\n");
     fflush(stdout);
 #endif
 }
