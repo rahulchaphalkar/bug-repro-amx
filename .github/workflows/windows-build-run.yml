@@ -8,6 +8,14 @@ on:
 jobs:
   build-and-run:
     runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: xstate-on
+            build_arg: xstate
+          - name: xstate-off
+            build_arg: ""
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,9 +37,9 @@ jobs:
           }
           clang --version
 
-      - name: Build
+      - name: Build (${{ matrix.name }})
         shell: cmd
-        run: build.bat
+        run: build.bat ${{ matrix.build_arg }}
 
       - name: Run repro
         shell: cmd
@@ -40,5 +48,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: amx-repro-windows
+          name: amx-repro-windows-${{ matrix.name }}
           path: amx_repro.exe
+

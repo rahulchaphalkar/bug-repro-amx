@@ -7,7 +7,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-clang -O0 -g -Wall -Wextra -mamx-tile -mamx-bf16 -mavx512bf16 -c main.c -o main.obj
+set XSTATE_FLAG=
+if /I "%~1"=="xstate" set XSTATE_FLAG=-DUSE_XSTATE_API
+
+clang -O0 -g -Wall -Wextra %XSTATE_FLAG% -mamx-tile -mamx-bf16 -mavx512bf16 -c main.c -o main.obj
 if errorlevel 1 exit /b 1
 
 clang -O0 -g -Wall -Wextra -mamx-tile -mamx-bf16 -mavx512bf16 -c amx_kernel.S -o amx_kernel.obj
