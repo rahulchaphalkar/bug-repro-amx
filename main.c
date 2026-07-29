@@ -134,17 +134,27 @@ static void print_sample(const float *c) {
    Logs the result so we can correlate it with whether the kernel runs. */
 static void arm_amx_thread_state(void) {
 #ifdef _WIN32
-    HMODULE k32 = GetModuleHandleA("kernel32.dll");
-    if (!k32) {
-        printf("SetThreadEnabledXStateFeatures: kernel32 not found\n");
-        fflush(stdout);
-        return;
-    }
     typedef BOOL(WINAPI * SetThreadEnabledXStateFeaturesFn)(unsigned long long);
-    SetThreadEnabledXStateFeaturesFn fn =
-        (SetThreadEnabledXStateFeaturesFn)GetProcAddress(k32, "SetThreadEnabledXStateFeatures");
+    SetThreadEnabledXStateFeaturesFn fn = NULL;
+
+    /* The setter is exported from kernelbase.dll and is not always
+       forwarded through kernel32.dll, so probe both. */
+    const char *dlls[] = {"kernelbase.dll", "kernel32.dll"};
+    for (int i = 0; i < 2 && fn == NULL; ++i) {
+        HMODULE h = GetModuleHandleA(dlls[i]);
+        if (!h) {
+            h = LoadLibraryA(dlls[i]);
+        }
+        if (h) {
+            fn = (SetThreadEnabledXStateFeaturesFn)GetProcAddress(h, "SetThreadEnabledXStateFeatures");
+            if (fn) {
+                printf("SetThreadEnabledXStateFeatures: found in %s\n", dlls[i]);
+            }
+        }
+    }
+
     if (!fn) {
-        printf("SetThreadEnabledXStateFeatures: API unavailable\n");
+        printf("SetThreadEnabledXStateFeatures: API unavailable (kernelbase+kernel32)\n");
         fflush(stdout);
         return;
     }
